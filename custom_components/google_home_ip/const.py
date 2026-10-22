@@ -11,6 +11,10 @@ LOGGER: Final = logging.getLogger(__package__)
 
 DEFAULT_NAME: Final = "Google Home"
 
+# Opción: URL de Home Assistant que usa el altavoz para descargar audios
+# locales y TTS (por ejemplo, la URL pública si HA está en otra red).
+CONF_BASE_URL: Final = "base_url"
+
 # Puerto del protocolo Cast (conexión TLS que usa pychromecast).
 CAST_PORT: Final = 8009
 

@@ -1,14 +1,23 @@
 {
   "domain": "google_home_ip",
   "name": "Google Home IP",
-  "codeowners": ["@srsergi0"],
+  "codeowners": [
+    "@srsergi0"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "media_source"],
+  "dependencies": [
+    "http",
+    "media_source"
+  ],
   "documentation": "https://github.com/srsergi0/ha-google-home-ip",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/srsergi0/ha-google-home-ip/issues",
-  "loggers": ["pychromecast"],
-  "requirements": ["PyChromecast>=14.0.0"],
-  "version": "1.0.0"
+  "loggers": [
+    "pychromecast"
+  ],
+  "requirements": [
+    "PyChromecast>=14.0.0"
+  ],
+  "version": "1.1.0"
 }

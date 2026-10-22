@@ -25,20 +25,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Change IP of {name}",
-        "description": "Use this if the Google Home got a new IP address. The integration reloads after saving.",
+        "title": "Options for {name}",
+        "description": "Change the IP if the Google Home got a new address. Set the Home Assistant URL if the speaker cannot reach the internal URL (for example, Home Assistant runs on another network): it is used for local files and TTS. The integration reloads if the IP changes.",
         "data": {
-          "host": "IP address"
+          "host": "IP address",
+          "base_url": "Home Assistant URL for the speaker"
         },
         "data_description": {
-          "host": "New local IP of the device."
+          "host": "Local IP of the device.",
+          "base_url": "Optional. Base URL the Google Home uses to download local audio and TTS, e.g. {example_url}. Leave empty to use the internal URL."
         }
       }
     },
     "error": {
       "cannot_connect": "The device does not respond on port 8009. Check the IP and that Home Assistant can reach it on the network.",
       "invalid_host": "Enter a valid IP address.",
-      "already_configured": "Another Google Home is already configured with this IP."
+      "already_configured": "Another Google Home is already configured with this IP.",
+      "invalid_url": "Enter a URL like {example_url} (no path)."
     }
   },
   "services": {
@@ -72,7 +75,7 @@
       "message": "File not found: {path}"
     },
     "no_url": {
-      "message": "Unable to determine the Home Assistant URL. Configure the local network URL in Settings > System > Network."
+      "message": "Unable to determine the Home Assistant URL. Configure the local network URL in Settings > System > Network or the Home Assistant URL in the integration options."
     }
   }
 }

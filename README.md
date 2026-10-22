@@ -14,7 +14,7 @@ Integración personalizada para [Home Assistant](https://www.home-assistant.io/)
 
 - Home Assistant **2025.10** o superior.
 - Home Assistant debe llegar a la IP del Google Home por los puertos **8009** (protocolo Cast) y **8443** (información del dispositivo).
-- Para reproducir **archivos locales o TTS**, el Google Home tiene que poder descargar el audio desde la URL de Home Assistant. Revisa **Ajustes → Sistema → Red → URL de Home Assistant** (red local). Las URLs públicas (`https://…`) funcionan siempre que el Google Home tenga Internet.
+- Para reproducir **archivos locales o TTS**, el Google Home tiene que poder descargar el audio desde Home Assistant. Por defecto se usa la URL interna (**Ajustes → Sistema → Red**). Si Home Assistant está en otra red (por ejemplo, en un VPS con acceso a casa por VPN o Tailscale), indica en las opciones de la integración una **URL de Home Assistant para el altavoz** que el Google Home pueda abrir, como tu URL pública `https://…`. Las URLs externas (`https://…`) funcionan siempre que el Google Home tenga Internet.
 - Reserva la IP del Google Home en tu router (DHCP estático) para que no cambie. Si cambia, se puede actualizar desde las opciones de la integración.
 
 ## Instalación
@@ -41,7 +41,12 @@ Copia la carpeta `custom_components/google_home_ip` en `/config/custom_component
 
 Se crea la entidad `media_player.<nombre>` (por ejemplo `media_player.salon`).
 
-**Cambiar la IP:** en la tarjeta de la integración pulsa **Configurar**, introduce la nueva IP y guarda. Se valida y la integración se recarga.
+### Opciones
+
+En la tarjeta de la integración pulsa **Configurar**:
+
+- **Dirección IP**: cambia la IP si el Google Home tiene una nueva. Se valida y la integración se recarga.
+- **URL de Home Assistant para el altavoz** (opcional): URL base desde la que el Google Home descarga los archivos de `/config/www` y el TTS, por ejemplo `https://ha.midominio.com`, sin ruta. Déjala vacía para usar la URL interna de Home Assistant.
 
 ## Servicio `google_home_ip.play_audio`
 
@@ -52,7 +57,7 @@ Se crea la entidad `media_player.<nombre>` (por ejemplo `media_player.salon`).
 | `volume` | no | Volumen (0–1) a fijar antes de reproducir. |
 | `restore_volume` | no | `true` para volver al volumen anterior cuando termine el audio (por defecto `false`). |
 
-**Rutas locales:** se aceptan `/config/www/sonidos/timbre.mp3`, `/local/sonidos/timbre.mp3` o `sonidos/timbre.mp3` (relativa a `www`). Se convierten automáticamente en `http://<URL interna de HA>/local/sonidos/timbre.mp3` para que el Google Home pueda descargarlas. Por seguridad, solo se permiten archivos dentro de `/config/www`.
+**Rutas locales:** se aceptan `/config/www/sonidos/timbre.mp3`, `/local/sonidos/timbre.mp3` o `sonidos/timbre.mp3` (relativa a `www`). Se convierten automáticamente en `<URL de HA>/local/sonidos/timbre.mp3` para que el Google Home pueda descargarlas. Se usa la URL de las opciones de la integración o, si no hay, la URL interna. Por seguridad, solo se permiten archivos dentro de `/config/www`.
 
 **Tipo MIME:** se detecta por la extensión: `mp3` → `audio/mpeg`, `wav` → `audio/wav`, `ogg` → `audio/ogg`, `aac` → `audio/aac`, `flac` → `audio/flac`. Sin extensión reconocible (por ejemplo, streams de radio) se usa `audio/mpeg`.
 
@@ -151,7 +156,9 @@ mode: single
 
 - **"El dispositivo no responde en el puerto 8009"**: comprueba la IP y que Home Assistant llega a ella, por ejemplo con `nc -vz 192.168.0.9 8009` desde el host.
 - **La entidad está "no disponible"**: el Google Home no responde. La integración reintenta sola cada pocos segundos y vuelve a estar disponible cuando el dispositivo vuelve.
-- **El servicio funciona pero no suena nada**: el Google Home no puede descargar el audio. Revisa la URL interna de Home Assistant (Ajustes → Sistema → Red) y que el altavoz tenga acceso a ella. En el registro aparece *"no pudo reproducir … Comprueba que la URL es accesible"*.
+- **El volumen cambia pero no suena nada (TTS o archivos locales)**: el Google Home no puede descargar el audio desde la URL de Home Assistant. Abre esa URL desde otro dispositivo de la misma red que el altavoz. Si no carga, configura la **URL de Home Assistant para el altavoz** en las opciones de la integración. Con el registro en `debug` verás la URL exacta que se envía (`Reproduciendo en …`).
+- **Suena una versión antigua de un archivo**: si accedes a Home Assistant a través de Cloudflare u otro CDN, los archivos de `/local/` pueden quedar en caché. Usa un nombre de archivo nuevo o purga la caché del CDN.
+- **Algunas URLs externas no suenan**: hay servicios que bloquean las descargas desde dispositivos Cast (por ejemplo, el endpoint web de Google Translate). Usa una entidad TTS de Home Assistant con `tts.speak`.
 
 Para ver el detalle en el registro:
 

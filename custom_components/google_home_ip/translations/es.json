@@ -25,20 +25,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Cambiar la IP de {name}",
-        "description": "Úsalo si el Google Home ha cambiado de IP. La integración se recarga al guardar.",
+        "title": "Opciones de {name}",
+        "description": "Cambia la IP si el Google Home tiene una nueva. Indica la URL de Home Assistant si el altavoz no llega a la URL interna (por ejemplo, si Home Assistant está en otra red): se usa para archivos locales y TTS. La integración se recarga si cambia la IP.",
         "data": {
-          "host": "Dirección IP"
+          "host": "Dirección IP",
+          "base_url": "URL de Home Assistant para el altavoz"
         },
         "data_description": {
-          "host": "Nueva IP local del dispositivo."
+          "host": "IP local del dispositivo.",
+          "base_url": "Opcional. URL base desde la que el Google Home descarga los audios locales y el TTS, por ejemplo {example_url}. Déjala vacía para usar la URL interna."
         }
       }
     },
     "error": {
       "cannot_connect": "El dispositivo no responde en el puerto 8009. Revisa la IP y que Home Assistant pueda alcanzarlo por la red.",
       "invalid_host": "Introduce una dirección IP válida.",
-      "already_configured": "Otro Google Home ya está configurado con esta IP."
+      "already_configured": "Otro Google Home ya está configurado con esta IP.",
+      "invalid_url": "Introduce una URL como {example_url} (sin ruta)."
     }
   },
   "services": {
@@ -72,7 +75,7 @@
       "message": "No se encuentra el archivo: {path}"
     },
     "no_url": {
-      "message": "No se puede determinar la URL de Home Assistant. Configura la URL de red local en Ajustes > Sistema > Red."
+      "message": "No se puede determinar la URL de Home Assistant. Configura la URL de red local en Ajustes > Sistema > Red o la URL de Home Assistant en las opciones de la integración."
     }
   }
 }

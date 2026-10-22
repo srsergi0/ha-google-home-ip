@@ -28,6 +28,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from .const import (
+    CONF_BASE_URL,
     DEFAULT_MIME_TYPE,
     DOMAIN,
     LOGGER,
@@ -75,7 +76,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Crea la entidad media_player del dispositivo."""
-    async_add_entities([GoogleHomeMediaPlayer(entry.runtime_data, entry.entry_id)])
+    async_add_entities([GoogleHomeMediaPlayer(entry)])
 
 
 class GoogleHomeMediaPlayer(MediaPlayerEntity):
@@ -88,12 +89,14 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
     _attr_supported_features = SUPPORTED_FEATURES
     _attr_media_content_type = MediaType.MUSIC
 
-    def __init__(self, device: GoogleHomeDevice, entry_id: str) -> None:
+    def __init__(self, entry: GoogleHomeConfigEntry) -> None:
         """Inicializa la entidad."""
-        self._device = device
-        self._attr_unique_id = entry_id
+        device = entry.runtime_data
+        self._entry = entry
+        self._device: GoogleHomeDevice = device
+        self._attr_unique_id = entry.entry_id
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry_id)},
+            identifiers={(DOMAIN, entry.entry_id)},
             name=device.name,
             manufacturer="Google",
             model="Google Home",
@@ -278,7 +281,7 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
             media_id = play_item.url
             mime_type = play_item.mime_type
 
-        media_id = async_process_play_media_url(self.hass, media_id)
+        media_id = self._absolute_url(media_id)
 
         if not mime_type or "/" not in mime_type:
             # media_type suele ser "music"/"audio" y no un MIME real.
@@ -331,30 +334,47 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
             play_item = await media_source.async_resolve_media(
                 self.hass, media, self.entity_id
             )
-            url = async_process_play_media_url(self.hass, play_item.url)
+            url = self._absolute_url(play_item.url)
             return url, play_item.mime_type or guess_mime_type(url)
 
         if urlparse(media).scheme in ("http", "https"):
             return media, guess_mime_type(media)
 
         relative = await self.hass.async_add_executor_job(self._local_www_path, media)
+        url = f"{self._base_url()}/local/{quote(relative.as_posix())}"
+        LOGGER.debug("Ruta local %s convertida a %s", media, url)
+        return url, guess_mime_type(url)
+
+    def _base_url(self) -> str:
+        """URL de Home Assistant desde la que el altavoz descarga los audios.
+
+        Usa la opción ``base_url`` si está configurada y, si no, la URL interna.
+        """
+        if configured := self._entry.options.get(CONF_BASE_URL):
+            return str(configured)
         try:
-            base_url = get_url(self.hass, allow_external=False)
+            return get_url(self.hass, allow_external=False)
         except NoURLAvailableError:
             LOGGER.warning(
                 "No hay URL interna configurada; se usará la URL disponible. "
-                "Configúrala en Ajustes > Sistema > Red"
+                "Configúrala en Ajustes > Sistema > Red o en las opciones de la "
+                "integración"
             )
-            try:
-                base_url = get_url(self.hass)
-            except NoURLAvailableError as err:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN, translation_key="no_url"
-                ) from err
+        try:
+            return get_url(self.hass)
+        except NoURLAvailableError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="no_url"
+            ) from err
 
-        url = f"{base_url}/local/{quote(relative.as_posix())}"
-        LOGGER.debug("Ruta local %s convertida a %s", media, url)
-        return url, guess_mime_type(url)
+    def _absolute_url(self, url: str) -> str:
+        """Firma las rutas de HA que lo necesitan y las hace absolutas."""
+        if url.startswith("/"):
+            signed = async_process_play_media_url(
+                self.hass, url, allow_relative_url=True
+            )
+            return f"{self._base_url()}{signed}"
+        return async_process_play_media_url(self.hass, url)
 
     def _local_www_path(self, media: str) -> PurePosixPath:
         """Valida una ruta local y la devuelve relativa a /config/www.

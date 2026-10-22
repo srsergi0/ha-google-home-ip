@@ -6,6 +6,7 @@ import asyncio
 from contextlib import suppress
 import ipaddress
 from typing import Any
+from urllib.parse import urlparse
 
 import voluptuous as vol
 
@@ -18,7 +19,14 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import callback
 
-from .const import CAST_PORT, CONNECT_TIMEOUT, DEFAULT_NAME, DOMAIN, LOGGER
+from .const import (
+    CAST_PORT,
+    CONF_BASE_URL,
+    CONNECT_TIMEOUT,
+    DEFAULT_NAME,
+    DOMAIN,
+    LOGGER,
+)
 
 
 def _normalize_host(host: str) -> str | None:
@@ -27,6 +35,19 @@ def _normalize_host(host: str) -> str | None:
         return str(ipaddress.ip_address(host.strip()))
     except ValueError:
         return None
+
+
+def _normalize_base_url(url: str) -> str | None:
+    """Devuelve la URL sin barra final, "" si está vacía o None si no es válida."""
+    url = url.strip().rstrip("/")
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+    if parsed.path or parsed.query or parsed.fragment:
+        return None
+    return url
 
 
 async def async_can_connect(host: str) -> bool:
@@ -90,20 +111,23 @@ class GoogleHomeIpConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class GoogleHomeIpOptionsFlow(OptionsFlow):
-    """Permite cambiar la IP de un Google Home ya configurado."""
+    """Permite cambiar la IP y la URL de Home Assistant de un Google Home."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Pide la nueva IP."""
+        """Pide la IP y, opcionalmente, la URL base para los audios."""
         errors: dict[str, str] = {}
         entry = self.config_entry
         current_host: str = entry.data[CONF_HOST]
 
         if user_input is not None:
             host = _normalize_host(user_input[CONF_HOST])
+            base_url = _normalize_base_url(user_input.get(CONF_BASE_URL, ""))
             if host is None:
                 errors[CONF_HOST] = "invalid_host"
+            elif base_url is None:
+                errors[CONF_BASE_URL] = "invalid_url"
             elif host != current_host and any(
                 other.data.get(CONF_HOST) == host
                 for other in self.hass.config_entries.async_entries(DOMAIN)
@@ -124,13 +148,29 @@ class GoogleHomeIpOptionsFlow(OptionsFlow):
                         entry, data={**entry.data, CONF_HOST: host}
                     )
                     self.hass.config_entries.async_schedule_reload(entry.entry_id)
-                return self.async_create_entry(data=dict(entry.options))
+                options = {**entry.options, CONF_BASE_URL: base_url}
+                if not base_url:
+                    options.pop(CONF_BASE_URL)
+                return self.async_create_entry(data=options)
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {vol.Required(CONF_HOST, default=current_host): str}
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_HOST): str,
+                        vol.Optional(CONF_BASE_URL): str,
+                    }
+                ),
+                user_input
+                or {
+                    CONF_HOST: current_host,
+                    CONF_BASE_URL: entry.options.get(CONF_BASE_URL, ""),
+                },
             ),
             errors=errors,
-            description_placeholders={"name": entry.title},
+            description_placeholders={
+                "name": entry.title,
+                "example_url": "https://ha.example.com",
+            },
         )
