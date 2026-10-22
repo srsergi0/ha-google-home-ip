@@ -57,11 +57,11 @@ Para un dispositivo llamado `Salón`:
 | Entidad | Descripción |
 |---|---|
 | `media_player.salon` | Reproductor. Está `off` cuando no hay ninguna app Cast abierta. |
-| `binary_sensor.salon_conexion_cast` | `on` si el socket Cast (puerto 8009) está conectado. Siempre disponible, útil para avisar de caídas. |
-| `sensor.salon_senal_wifi` | Señal WiFi en dBm. Atributos: `ssid`, `bssid`, `noise_level`, `ip_address`. |
-| `sensor.salon_ultimo_reinicio` | Hora del último arranque del altavoz. |
+| `binary_sensor.salon_cast_connection` | `on` si el socket Cast (puerto 8009) está conectado. Siempre disponible, útil para avisar de caídas. |
+| `sensor.salon_wifi_signal` | Señal WiFi en dBm. Atributos: `ssid`, `bssid`, `noise_level`, `ip_address`. |
+| `sensor.salon_last_boot` | Hora del último arranque del altavoz. |
 
-Los sensores se leen cada 60 s de la API local del dispositivo (puerto 8443) y no necesitan cuenta de Google. Los IDs exactos dependen del idioma de Home Assistant al crear la entrada.
+Los sensores se leen cada 60 s de la API local del dispositivo (puerto 8443) y no necesitan cuenta de Google. Los nombres se muestran traducidos, pero Home Assistant genera los IDs a partir del nombre en inglés.
 
 ## Servicio `google_home_ip.play_audio`
 
@@ -143,7 +143,7 @@ mode: single
 alias: Google Home desconectado
 triggers:
   - trigger: state
-    entity_id: binary_sensor.salon_conexion_cast
+    entity_id: binary_sensor.salon_cast_connection
     to: "off"
     for: "00:10:00"
 actions:
@@ -211,7 +211,7 @@ mode: single
 ## Solución de problemas
 
 - **"El dispositivo no responde en el puerto 8009"**: comprueba la IP y que Home Assistant llega a ella, por ejemplo con `nc -vz 192.168.0.9 8009` desde el host.
-- **La entidad está "no disponible"**: el Google Home no responde (míralo en `binary_sensor.<nombre>_conexion_cast` y en el diagnóstico descargable de la integración). La integración reintenta sola cada pocos segundos y vuelve a estar disponible cuando el dispositivo vuelve.
+- **La entidad está "no disponible"**: el Google Home no responde (míralo en `binary_sensor.<nombre>_cast_connection` y en el diagnóstico descargable de la integración). La integración reintenta sola cada pocos segundos y vuelve a estar disponible cuando el dispositivo vuelve.
 - **El volumen cambia pero no suena nada (TTS o archivos locales)**: el Google Home no puede descargar el audio desde la URL de Home Assistant. Abre esa URL desde otro dispositivo de la misma red que el altavoz. Si no carga, configura la **URL de Home Assistant para el altavoz** en las opciones de la integración. Con el registro en `debug` verás la URL exacta que se envía (`Reproduciendo en …`).
 - **Suena una versión antigua de un archivo**: si accedes a Home Assistant a través de Cloudflare u otro CDN, los archivos de `/local/` pueden quedar en caché. Usa un nombre de archivo nuevo o purga la caché del CDN.
 - **Algunas URLs externas no suenan**: hay servicios que bloquean las descargas desde dispositivos Cast (por ejemplo, el endpoint web de Google Translate). Usa una entidad TTS de Home Assistant con `tts.speak`.
