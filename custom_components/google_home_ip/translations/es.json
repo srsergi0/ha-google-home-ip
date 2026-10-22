@@ -44,6 +44,21 @@
       "invalid_url": "Introduce una URL como {example_url} (sin ruta)."
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "cast_connection": {
+        "name": "Conexión Cast"
+      }
+    },
+    "sensor": {
+      "wifi_signal": {
+        "name": "Señal WiFi"
+      },
+      "last_boot": {
+        "name": "Último reinicio"
+      }
+    }
+  },
   "services": {
     "play_audio": {
       "name": "Reproducir audio",
@@ -60,6 +75,10 @@
         "restore_volume": {
           "name": "Restaurar volumen",
           "description": "Vuelve al volumen anterior cuando termina el audio."
+        },
+        "announce": {
+          "name": "Aviso",
+          "description": "Interrumpe lo que esté sonando y lo reanuda al terminar el audio (radio, archivos y TTS del receptor genérico; apps como Spotify no se pueden reanudar)."
         }
       }
     }

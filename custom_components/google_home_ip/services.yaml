@@ -23,3 +23,8 @@ play_audio:
       default: false
       selector:
         boolean:
+    announce:
+      required: false
+      default: false
+      selector:
+        boolean:

@@ -44,6 +44,21 @@
       "invalid_url": "Enter a URL like {example_url} (no path)."
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "cast_connection": {
+        "name": "Cast connection"
+      }
+    },
+    "sensor": {
+      "wifi_signal": {
+        "name": "WiFi signal"
+      },
+      "last_boot": {
+        "name": "Last boot"
+      }
+    }
+  },
   "services": {
     "play_audio": {
       "name": "Play audio",
@@ -60,6 +75,10 @@
         "restore_volume": {
           "name": "Restore volume",
           "description": "Return to the previous volume when the audio finishes."
+        },
+        "announce": {
+          "name": "Announcement",
+          "description": "Interrupts what is playing and resumes it when the audio finishes (radio, files and TTS played on the default receiver; apps such as Spotify cannot be resumed)."
         }
       }
     }

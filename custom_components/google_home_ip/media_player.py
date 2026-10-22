@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote, urlparse
+
+from pychromecast.config import APP_BACKDROP, APP_MEDIA_RECEIVER
 
 from homeassistant.components import media_source
 from homeassistant.components.media_player import (
@@ -19,10 +22,9 @@ from homeassistant.components.media_player import (
     MediaType,
     async_process_play_media_url,
 )
+from homeassistant.components.media_player.const import ATTR_MEDIA_ANNOUNCE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.network import NoURLAvailableError, get_url
@@ -36,12 +38,17 @@ from .const import (
     RESTORE_MAX_WAIT,
     RESTORE_START_TIMEOUT,
 )
-from .device import GoogleHomeConfigEntry, GoogleHomeDevice
+from .coordinator import GoogleHomeConfigEntry
+from .device import GoogleHomeDevice
+from .entity import GoogleHomeEntity
 
 PARALLEL_UPDATES = 0
 
 SUPPORTED_FEATURES = (
     MediaPlayerEntityFeature.PLAY_MEDIA
+    | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
+    | MediaPlayerEntityFeature.TURN_ON
+    | MediaPlayerEntityFeature.TURN_OFF
     | MediaPlayerEntityFeature.PLAY
     | MediaPlayerEntityFeature.PAUSE
     | MediaPlayerEntityFeature.STOP
@@ -63,6 +70,21 @@ _ACTIVE_STATES = (
     MediaPlayerState.PAUSED,
 )
 
+# Apps que equivalen a "apagado": ninguna o el fondo de pantalla.
+_IDLE_APPS = (None, APP_BACKDROP)
+
+
+@dataclass(frozen=True, slots=True)
+class _MediaSnapshot:
+    """Audio del Default Media Receiver que se reanuda tras un aviso."""
+
+    url: str
+    content_type: str
+    title: str | None
+    stream_type: str
+    position: float | None
+    autoplay: bool
+
 
 def guess_mime_type(url: str) -> str:
     """Tipo MIME según la extensión (mp3, wav, ogg, aac, flac)."""
@@ -79,30 +101,23 @@ async def async_setup_entry(
     async_add_entities([GoogleHomeMediaPlayer(entry)])
 
 
-class GoogleHomeMediaPlayer(MediaPlayerEntity):
+class GoogleHomeMediaPlayer(GoogleHomeEntity, MediaPlayerEntity):
     """Google Home controlado directamente por IP."""
 
-    _attr_has_entity_name = True
     _attr_name = None
     _attr_should_poll = False
     _attr_device_class = MediaPlayerDeviceClass.SPEAKER
-    _attr_supported_features = SUPPORTED_FEATURES
     _attr_media_content_type = MediaType.MUSIC
 
     def __init__(self, entry: GoogleHomeConfigEntry) -> None:
         """Inicializa la entidad."""
-        device = entry.runtime_data
+        super().__init__(entry)
         self._entry = entry
-        self._device: GoogleHomeDevice = device
+        self._device: GoogleHomeDevice = entry.runtime_data.device
         self._attr_unique_id = entry.entry_id
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=device.name,
-            manufacturer="Google",
-            model="Google Home",
-        )
         self._restore_task: asyncio.Task[None] | None = None
         self._volume_to_restore: float | None = None
+        self._media_to_resume: _MediaSnapshot | None = None
         self._device_changed = asyncio.Event()
 
     async def async_added_to_hass(self) -> None:
@@ -116,30 +131,8 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
 
     @callback
     def _async_device_updated(self) -> None:
-        self._update_device_info()
         self.async_write_ha_state()
         self._device_changed.set()
-
-    @callback
-    def _update_device_info(self) -> None:
-        """Completa la ficha del dispositivo cuando se conoce el modelo."""
-        info = self._device.cast_info
-        if (
-            info is None
-            or self.registry_entry is None
-            or not self.registry_entry.device_id
-        ):
-            return
-        registry = dr.async_get(self.hass)
-        device_entry = registry.async_get(self.registry_entry.device_id)
-        if device_entry is None:
-            return
-        model = info.model_name or "Google Home"
-        manufacturer = info.manufacturer or "Google"
-        if device_entry.model != model or device_entry.manufacturer != manufacturer:
-            registry.async_update_device(
-                device_entry.id, model=model, manufacturer=manufacturer
-            )
 
     # ------------------------------------------------------------------
     # Estado
@@ -152,11 +145,29 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
 
     @property
     def state(self) -> MediaPlayerState:
-        """Reproduciendo, en pausa o inactivo."""
+        """Apagado (sin app Cast), reproduciendo, en pausa o inactivo."""
+        cast_status = self._device.cast_status
+        if cast_status is not None and cast_status.app_id in _IDLE_APPS:
+            return MediaPlayerState.OFF
         status = self._device.media_status
         if status is None:
             return MediaPlayerState.IDLE
         return _PLAYER_STATES.get(status.player_state, MediaPlayerState.IDLE)
+
+    @property
+    def supported_features(self) -> MediaPlayerEntityFeature:
+        """Añade seek y siguiente/anterior cuando la app activa los admite."""
+        features = SUPPORTED_FEATURES
+        status = self._device.media_status
+        if status is None or self.state not in _ACTIVE_STATES:
+            return features
+        if status.supports_seek:
+            features |= MediaPlayerEntityFeature.SEEK
+        if status.supports_queue_next:
+            features |= MediaPlayerEntityFeature.NEXT_TRACK
+        if status.supports_queue_prev:
+            features |= MediaPlayerEntityFeature.PREVIOUS_TRACK
+        return features
 
     @property
     def volume_level(self) -> float | None:
@@ -238,6 +249,29 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
         """Detiene."""
         await self.hass.async_add_executor_job(self._device.stop)
 
+    async def async_media_seek(self, position: float) -> None:
+        """Salta a una posición."""
+        await self.hass.async_add_executor_job(self._device.seek, position)
+
+    async def async_media_next_track(self) -> None:
+        """Siguiente."""
+        await self.hass.async_add_executor_job(self._device.next_track)
+
+    async def async_media_previous_track(self) -> None:
+        """Anterior."""
+        await self.hass.async_add_executor_job(self._device.previous_track)
+
+    async def async_turn_on(self) -> None:
+        """Abre el Default Media Receiver."""
+        await self.hass.async_add_executor_job(self._device.turn_on)
+
+    async def async_turn_off(self) -> None:
+        """Cierra la app activa."""
+        self._cancel_restore()
+        self._volume_to_restore = None
+        self._media_to_resume = None
+        await self.hass.async_add_executor_job(self._device.turn_off)
+
     async def async_set_volume_level(self, volume: float) -> None:
         """Fija el volumen."""
         await self.hass.async_add_executor_job(self._device.set_volume, volume)
@@ -292,8 +326,11 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
         extra: dict[str, Any] = kwargs.get("extra") or {}
         title: str | None = extra.get("title")
 
-        await self.hass.async_add_executor_job(
-            self._device.play_media, media_id, str(mime_type), title
+        await self._async_play(
+            media_id,
+            str(mime_type),
+            title,
+            announce=bool(kwargs.get(ATTR_MEDIA_ANNOUNCE)),
         )
 
     # ------------------------------------------------------------------
@@ -301,30 +338,91 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
     # ------------------------------------------------------------------
 
     async def async_play_audio(
-        self, media: str, volume: float | None = None, restore_volume: bool = False
+        self,
+        media: str,
+        volume: float | None = None,
+        restore_volume: bool = False,
+        announce: bool = False,
     ) -> None:
         """Reproduce una URL o una ruta local de /config/www."""
         url, mime_type = await self._async_resolve_audio(media)
+        await self._async_play(
+            url,
+            mime_type,
+            None,
+            volume=volume,
+            restore_volume=restore_volume,
+            announce=announce,
+        )
 
+    async def _async_play(
+        self,
+        url: str,
+        mime_type: str,
+        title: str | None,
+        *,
+        volume: float | None = None,
+        restore_volume: bool = False,
+        announce: bool = False,
+    ) -> None:
+        """Reproduce y programa la restauración de volumen y del audio previo.
+
+        Si ya hay una restauración pendiente (un aviso encima de otro) se
+        conservan el volumen y el audio originales.
+        """
         if restore_volume and self._volume_to_restore is None:
-            # Si ya hay una restauración pendiente se conserva el volumen original.
             self._volume_to_restore = self._device.volume_level
+        if announce and self._media_to_resume is None:
+            self._media_to_resume = self._snapshot_media()
+        pending = self._restore_task is not None
         self._cancel_restore()
 
         if volume is not None:
             await self.async_set_volume_level(volume)
 
         await self.hass.async_add_executor_job(
-            self._device.play_media, url, mime_type, None
+            self._device.play_media, url, mime_type, title
         )
 
-        if restore_volume and self._volume_to_restore is not None:
-            self._restore_task = self.hass.async_create_background_task(
-                self._async_restore_volume_when_done(),
-                f"{DOMAIN} restaurar volumen {self.entity_id}",
-            )
-        else:
+        if not (restore_volume or announce or pending):
+            # Reproducción normal: descarta lo que quedara pendiente.
             self._volume_to_restore = None
+            self._media_to_resume = None
+            return
+        if self._volume_to_restore is None and self._media_to_resume is None:
+            return
+        self._restore_task = self.hass.async_create_background_task(
+            self._async_restore_when_done(url),
+            f"{DOMAIN} restaurar tras aviso {self.entity_id}",
+        )
+
+    def _snapshot_media(self) -> _MediaSnapshot | None:
+        """Guarda el audio del Default Media Receiver para reanudarlo.
+
+        Solo se puede reanudar lo que reproduce el receptor genérico (radio,
+        archivos, TTS...). Apps como Spotify o YouTube no se pueden recuperar.
+        """
+        cast_status = self._device.cast_status
+        status = self._device.media_status
+        if (
+            cast_status is None
+            or cast_status.app_id != APP_MEDIA_RECEIVER
+            or status is None
+            or not status.content_id
+            or self.state not in _ACTIVE_STATES
+        ):
+            return None
+        live = status.stream_type_is_live or not status.duration
+        snapshot = _MediaSnapshot(
+            url=status.content_id,
+            content_type=status.content_type or guess_mime_type(status.content_id),
+            title=status.title,
+            stream_type="LIVE" if live else "BUFFERED",
+            position=None if live else status.adjusted_current_time,
+            autoplay=self.state != MediaPlayerState.PAUSED,
+        )
+        LOGGER.debug("Audio a reanudar tras el aviso: %s", snapshot)
+        return snapshot
 
     async def _async_resolve_audio(self, media: str) -> tuple[str, str]:
         """Convierte el parámetro media en una URL accesible y su tipo MIME."""
@@ -416,12 +514,22 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
             self._restore_task.cancel()
             self._restore_task = None
 
-    async def _async_restore_volume_when_done(self) -> None:
-        """Espera a que termine el audio y restaura el volumen anterior."""
-        previous = self._volume_to_restore
+    async def _async_restore_when_done(self, url: str) -> None:
+        """Espera a que termine el audio y restaura el volumen y el audio previo."""
+        previous_volume = self._volume_to_restore
+        resume = self._media_to_resume
+
+        def playing_ours() -> bool:
+            status = self._device.media_status
+            return (
+                status is not None
+                and status.content_id == url
+                and self.state in _ACTIVE_STATES
+            )
+
         try:
             async with asyncio.timeout(RESTORE_START_TIMEOUT):
-                await self._async_wait_until(lambda: self.state in _ACTIVE_STATES)
+                await self._async_wait_until(playing_ours)
             LOGGER.debug(
                 "Audio iniciado en %s; esperando a que termine", self.entity_id
             )
@@ -431,19 +539,43 @@ class GoogleHomeMediaPlayer(MediaPlayerEntity):
         try:
             async with asyncio.timeout(RESTORE_MAX_WAIT):
                 await self._async_wait_until(
-                    lambda: not self.available or self.state not in _ACTIVE_STATES
+                    lambda: not self.available or not playing_ours()
                 )
         except TimeoutError:
             LOGGER.warning("Tiempo máximo de espera agotado en %s", self.entity_id)
 
         self._volume_to_restore = None
+        self._media_to_resume = None
         self._restore_task = None
-        if previous is None or not self.available:
+        if not self.available:
             return
-        LOGGER.info("Restaurando volumen de %s a %.2f", self.entity_id, previous)
-        try:
-            await self.async_set_volume_level(previous)
-        except HomeAssistantError as err:
-            LOGGER.error(
-                "No se pudo restaurar el volumen de %s: %s", self.entity_id, err
+
+        if previous_volume is not None:
+            LOGGER.info(
+                "Restaurando volumen de %s a %.2f", self.entity_id, previous_volume
             )
+            try:
+                await self.async_set_volume_level(previous_volume)
+            except HomeAssistantError as err:
+                LOGGER.error(
+                    "No se pudo restaurar el volumen de %s: %s", self.entity_id, err
+                )
+
+        status = self._device.media_status
+        if resume is None or (status is not None and status.idle_reason == "CANCELLED"):
+            # Sin audio previo, o el usuario detuvo el aviso a mano.
+            return
+        LOGGER.info("Reanudando %s en %s", resume.url, self.entity_id)
+        try:
+            await self.hass.async_add_executor_job(
+                lambda: self._device.play_media(
+                    resume.url,
+                    resume.content_type,
+                    resume.title,
+                    stream_type=resume.stream_type,
+                    current_time=resume.position,
+                    autoplay=resume.autoplay,
+                )
+            )
+        except HomeAssistantError as err:
+            LOGGER.error("No se pudo reanudar el audio en %s: %s", self.entity_id, err)

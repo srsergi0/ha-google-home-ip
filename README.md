@@ -5,9 +5,11 @@ Integración personalizada para [Home Assistant](https://www.home-assistant.io/)
 Útil cuando Home Assistant está en otra red o subred (Docker sin `network_mode: host`, VLAN, VPN, Tailscale…) y la integración oficial *Google Cast* no encuentra el dispositivo.
 
 - Se configura desde la interfaz: **Ajustes → Dispositivos y servicios → Añadir integración → Google Home IP**.
-- Crea una entidad `media_player` por dispositivo: reproducir, pausa, stop, volumen (fijar, subir, bajar, silenciar), estado y volumen actual.
+- Crea una entidad `media_player` por dispositivo: reproducir, pausa, stop, volumen (fijar, subir, bajar, silenciar), encender/apagar, posición (seek) y siguiente/anterior cuando la app lo permite.
 - Compatible con **Media Source** (explorador multimedia) y **TTS** (`tts.speak`).
+- **Avisos que interrumpen y reanudan**: un TTS o un sonido corta la radio o el audio que esté sonando y, al terminar, lo reanuda en el mismo punto.
 - Servicio propio `google_home_ip.play_audio` con volumen temporal y restauración del volumen anterior.
+- Sensores de diagnóstico: **conexión Cast**, **señal WiFi** (con red, punto de acceso y ruido) y **último reinicio**. La ficha del dispositivo muestra modelo, firmware y MAC.
 - Reconexión automática si el Google Home se reinicia o se cae la red; la entidad aparece como *no disponible* mientras no responde.
 
 ## Requisitos
@@ -48,6 +50,19 @@ En la tarjeta de la integración pulsa **Configurar**:
 - **Dirección IP**: cambia la IP si el Google Home tiene una nueva. Se valida y la integración se recarga.
 - **URL de Home Assistant para el altavoz** (opcional): URL base desde la que el Google Home descarga los archivos de `/config/www` y el TTS, por ejemplo `https://ha.midominio.com`, sin ruta. Déjala vacía para usar la URL interna de Home Assistant.
 
+## Entidades
+
+Para un dispositivo llamado `Salón`:
+
+| Entidad | Descripción |
+|---|---|
+| `media_player.salon` | Reproductor. Está `off` cuando no hay ninguna app Cast abierta. |
+| `binary_sensor.salon_conexion_cast` | `on` si el socket Cast (puerto 8009) está conectado. Siempre disponible, útil para avisar de caídas. |
+| `sensor.salon_senal_wifi` | Señal WiFi en dBm. Atributos: `ssid`, `bssid`, `noise_level`, `ip_address`. |
+| `sensor.salon_ultimo_reinicio` | Hora del último arranque del altavoz. |
+
+Los sensores se leen cada 60 s de la API local del dispositivo (puerto 8443) y no necesitan cuenta de Google. Los IDs exactos dependen del idioma de Home Assistant al crear la entrada.
+
 ## Servicio `google_home_ip.play_audio`
 
 | Parámetro | Obligatorio | Descripción |
@@ -56,6 +71,7 @@ En la tarjeta de la integración pulsa **Configurar**:
 | `media` | sí | URL `http(s)://`, ID `media-source://…` o ruta local dentro de `/config/www`. |
 | `volume` | no | Volumen (0–1) a fijar antes de reproducir. |
 | `restore_volume` | no | `true` para volver al volumen anterior cuando termine el audio (por defecto `false`). |
+| `announce` | no | `true` para reanudar lo que estaba sonando cuando termine el audio (por defecto `false`). |
 
 **Rutas locales:** se aceptan `/config/www/sonidos/timbre.mp3`, `/local/sonidos/timbre.mp3` o `sonidos/timbre.mp3` (relativa a `www`). Se convierten automáticamente en `<URL de HA>/local/sonidos/timbre.mp3` para que el Google Home pueda descargarlas. Se usa la URL de las opciones de la integración o, si no hay, la URL interna. Por seguridad, solo se permiten archivos dentro de `/config/www`.
 
@@ -70,6 +86,10 @@ data:
   volume: 0.6
   restore_volume: true
 ```
+
+### Avisos (`announce`)
+
+Con `announce: true` (o con `tts.speak`, que siempre lo envía) el audio se reproduce como un aviso: si el Google Home estaba reproduciendo algo con el receptor genérico (radio, archivos, otro TTS…), se guarda el punto exacto y se reanuda cuando termina el aviso, después de restaurar el volumen si se pidió `restore_volume`. Si detienes el aviso a mano, no se reanuda nada. Lo que suena desde apps como Spotify o YouTube no se puede recuperar: el aviso lo corta.
 
 También funcionan los servicios estándar: `media_player.play_media`, `media_player.media_pause`, `media_player.media_stop`, `media_player.volume_set`, `media_player.volume_up`, `media_player.volume_down`, `media_player.volume_mute` y el explorador multimedia de la entidad.
 
@@ -94,6 +114,42 @@ actions:
       media: /config/www/sonidos/puerta.mp3
       volume: 0.7
       restore_volume: true
+mode: single
+```
+
+### Timbre que no corta la radio para siempre
+
+```yaml
+alias: Timbre
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.timbre
+    to: "on"
+actions:
+  - action: google_home_ip.play_audio
+    target:
+      entity_id: media_player.salon
+    data:
+      media: /config/www/sonidos/timbre.mp3
+      volume: 0.8
+      restore_volume: true
+      announce: true
+mode: single
+```
+
+### Aviso si el altavoz se desconecta
+
+```yaml
+alias: Google Home desconectado
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.salon_conexion_cast
+    to: "off"
+    for: "00:10:00"
+actions:
+  - action: notify.notify
+    data:
+      message: "El Google Home del salón lleva 10 minutos sin conexión."
 mode: single
 ```
 
@@ -155,7 +211,7 @@ mode: single
 ## Solución de problemas
 
 - **"El dispositivo no responde en el puerto 8009"**: comprueba la IP y que Home Assistant llega a ella, por ejemplo con `nc -vz 192.168.0.9 8009` desde el host.
-- **La entidad está "no disponible"**: el Google Home no responde. La integración reintenta sola cada pocos segundos y vuelve a estar disponible cuando el dispositivo vuelve.
+- **La entidad está "no disponible"**: el Google Home no responde (míralo en `binary_sensor.<nombre>_conexion_cast` y en el diagnóstico descargable de la integración). La integración reintenta sola cada pocos segundos y vuelve a estar disponible cuando el dispositivo vuelve.
 - **El volumen cambia pero no suena nada (TTS o archivos locales)**: el Google Home no puede descargar el audio desde la URL de Home Assistant. Abre esa URL desde otro dispositivo de la misma red que el altavoz. Si no carga, configura la **URL de Home Assistant para el altavoz** en las opciones de la integración. Con el registro en `debug` verás la URL exacta que se envía (`Reproduciendo en …`).
 - **Suena una versión antigua de un archivo**: si accedes a Home Assistant a través de Cloudflare u otro CDN, los archivos de `/local/` pueden quedar en caché. Usa un nombre de archivo nuevo o purga la caché del CDN.
 - **Algunas URLs externas no suenan**: hay servicios que bloquean las descargas desde dispositivos Cast (por ejemplo, el endpoint web de Google Translate). Usa una entidad TTS de Home Assistant con `tts.speak`.
@@ -172,6 +228,8 @@ logger:
 ## Cómo funciona
 
 La integración usa [pychromecast](https://github.com/home-assistant-libs/pychromecast) con `known_hosts=[ip]` y sin zeroconf: pychromecast consulta la IP cada 30 segundos y mantiene un socket Cast con reintentos indefinidos. Todas las llamadas bloqueantes se ejecutan en el executor de Home Assistant. Al eliminar o recargar la integración se cierran la conexión y el sondeo.
+
+Los sensores leen `https://<ip>:8443/setup/eureka_info`, la API local que usa la app Google Home. Su lectura no requiere token; el diagnóstico descargable oculta la MAC, la red WiFi y los identificadores del dispositivo.
 
 ## Licencia
 

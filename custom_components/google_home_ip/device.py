@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import pychromecast
+from pychromecast.config import APP_MEDIA_RECEIVER
 from pychromecast.controllers.media import MediaStatus, MediaStatusListener
 from pychromecast.controllers.receiver import CastStatus, CastStatusListener
 from pychromecast.discovery import CastBrowser, SimpleCastListener
@@ -18,7 +19,6 @@ from pychromecast.socket_client import (
     ConnectionStatusListener,
 )
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import dispatcher_send
@@ -36,8 +36,6 @@ from .const import (
 
 if TYPE_CHECKING:
     from pychromecast import Chromecast
-
-type GoogleHomeConfigEntry = ConfigEntry[GoogleHomeDevice]
 
 
 class GoogleHomeDevice(
@@ -257,7 +255,16 @@ class GoogleHomeDevice(
             )
         return chromecast
 
-    def play_media(self, url: str, content_type: str, title: str | None) -> None:
+    def play_media(
+        self,
+        url: str,
+        content_type: str,
+        title: str | None,
+        *,
+        stream_type: str = "BUFFERED",
+        current_time: float | None = None,
+        autoplay: bool = True,
+    ) -> None:
         """Envía un audio al Default Media Receiver."""
         chromecast = self._require_chromecast()
         LOGGER.info("Reproduciendo en %s: %s (%s)", self.name, url, content_type)
@@ -265,7 +272,9 @@ class GoogleHomeDevice(
             url,
             content_type,
             title=title,
-            stream_type="BUFFERED",
+            stream_type=stream_type,
+            current_time=current_time,
+            autoplay=autoplay,
         )
 
     def play(self) -> None:
@@ -279,6 +288,30 @@ class GoogleHomeDevice(
     def stop(self) -> None:
         """Detiene la reproducción."""
         self._require_chromecast().media_controller.stop(timeout=REQUEST_TIMEOUT)
+
+    def seek(self, position: float) -> None:
+        """Salta a una posición (segundos)."""
+        self._require_chromecast().media_controller.seek(
+            position, timeout=REQUEST_TIMEOUT
+        )
+
+    def next_track(self) -> None:
+        """Siguiente elemento de la cola."""
+        self._require_chromecast().media_controller.queue_next(timeout=REQUEST_TIMEOUT)
+
+    def previous_track(self) -> None:
+        """Elemento anterior de la cola."""
+        self._require_chromecast().media_controller.queue_prev(timeout=REQUEST_TIMEOUT)
+
+    def turn_on(self) -> None:
+        """Abre el Default Media Receiver."""
+        self._require_chromecast().start_app(
+            APP_MEDIA_RECEIVER, timeout=REQUEST_TIMEOUT
+        )
+
+    def turn_off(self) -> None:
+        """Cierra la app Cast activa (Spotify, YouTube, audio de HA...)."""
+        self._require_chromecast().quit_app(timeout=REQUEST_TIMEOUT)
 
     def set_volume(self, volume: float) -> None:
         """Fija el volumen (0-1)."""

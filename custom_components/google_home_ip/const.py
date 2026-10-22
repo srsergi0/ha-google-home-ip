@@ -18,6 +18,14 @@ CONF_BASE_URL: Final = "base_url"
 # Puerto del protocolo Cast (conexión TLS que usa pychromecast).
 CAST_PORT: Final = 8009
 
+# API local de configuración (HTTPS con certificado autofirmado). La lectura de
+# eureka_info no necesita token.
+EUREKA_URL: Final = "https://{host}:8443/setup/eureka_info"
+EUREKA_PARAMS: Final = "name,build_info,device_info,net,wifi"
+
+# Segundos entre lecturas de eureka_info (señal WiFi, firmware, uptime).
+INFO_UPDATE_INTERVAL: Final = 60
+
 # Segundos para validar que el dispositivo responde durante la configuración.
 CONNECT_TIMEOUT: Final = 5
 
@@ -36,8 +44,9 @@ SERVICE_PLAY_AUDIO: Final = "play_audio"
 ATTR_MEDIA: Final = "media"
 ATTR_VOLUME: Final = "volume"
 ATTR_RESTORE_VOLUME: Final = "restore_volume"
+ATTR_ANNOUNCE: Final = "announce"
 
-# Restauración de volumen tras play_audio.
+# Restauración de volumen y del audio interrumpido tras un aviso.
 RESTORE_START_TIMEOUT: Final = 20  # segundos para que empiece la reproducción
 RESTORE_MAX_WAIT: Final = 3600  # tope de espera a que termine el audio
 

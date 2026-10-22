@@ -1,4 +1,19 @@
 {
+  "entity": {
+    "binary_sensor": {
+      "cast_connection": {
+        "default": "mdi:cast-connected",
+        "state": {
+          "off": "mdi:cast-off"
+        }
+      }
+    },
+    "sensor": {
+      "last_boot": {
+        "default": "mdi:restart"
+      }
+    }
+  },
   "services": {
     "play_audio": {
       "service": "mdi:speaker-play"
