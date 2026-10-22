@@ -19,5 +19,5 @@
   "requirements": [
     "PyChromecast>=14.0.0"
   ],
-  "version": "1.2.0"
+  "version": "1.2.1"
 }

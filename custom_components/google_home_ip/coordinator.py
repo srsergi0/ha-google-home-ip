@@ -82,9 +82,14 @@ class GoogleHomeInfoCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _async_update_device_registry(self, data: dict[str, Any]) -> None:
         """Completa la ficha del dispositivo con modelo, firmware y MAC."""
         registry = dr.async_get(self.hass)
-        device_entry = registry.async_get_device(
-            identifiers={(DOMAIN, self.config_entry.entry_id)}
-        )
+        identifier = (DOMAIN, self.config_entry.entry_id)
+        # async_get_device está obsoleto en las versiones que tienen la API nueva.
+        if hasattr(registry, "async_get_device_by_identifier"):
+            device_entry = registry.async_get_device_by_identifier(
+                identifier, self.config_entry.entry_id
+            )
+        else:
+            device_entry = registry.async_get_device(identifiers={identifier})
         if device_entry is None:
             return
 
@@ -104,7 +109,7 @@ class GoogleHomeInfoCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if mac := device_info.get("mac_address"):
             connection = (dr.CONNECTION_NETWORK_MAC, dr.format_mac(mac))
             if connection not in device_entry.connections:
-                changes["merge_connections"] = {connection}
+                changes["new_connections"] = device_entry.connections | {connection}
         if not changes:
             return
 
@@ -112,6 +117,6 @@ class GoogleHomeInfoCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             registry.async_update_device(device_entry.id, **changes)
         except dr.DeviceConnectionCollisionError:
             # Otra integración (p. ej. Google Cast) ya registró esta MAC.
-            changes.pop("merge_connections")
+            changes.pop("new_connections")
             if changes:
                 registry.async_update_device(device_entry.id, **changes)
