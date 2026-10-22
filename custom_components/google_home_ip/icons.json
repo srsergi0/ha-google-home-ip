@@ -1,0 +1,7 @@
+{
+  "services": {
+    "play_audio": {
+      "service": "mdi:speaker-play"
+    }
+  }
+}

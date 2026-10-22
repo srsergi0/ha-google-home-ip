@@ -1,0 +1,78 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Google Home by IP",
+        "description": "Enter the local IP address of the Google Home. Home Assistant connects to it directly on port 8009, without mDNS discovery.",
+        "data": {
+          "host": "IP address",
+          "name": "Name"
+        },
+        "data_description": {
+          "host": "Local IP of the device, for example 192.168.0.9. Reserve it in your router so it does not change.",
+          "name": "Name of the device and its media player entity."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The device does not respond on port 8009. Check the IP and that Home Assistant can reach it on the network.",
+      "invalid_host": "Enter a valid IP address."
+    },
+    "abort": {
+      "already_configured": "A Google Home with this IP is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Change IP of {name}",
+        "description": "Use this if the Google Home got a new IP address. The integration reloads after saving.",
+        "data": {
+          "host": "IP address"
+        },
+        "data_description": {
+          "host": "New local IP of the device."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The device does not respond on port 8009. Check the IP and that Home Assistant can reach it on the network.",
+      "invalid_host": "Enter a valid IP address.",
+      "already_configured": "Another Google Home is already configured with this IP."
+    }
+  },
+  "services": {
+    "play_audio": {
+      "name": "Play audio",
+      "description": "Plays an audio file or stream on the Google Home, with optional volume and volume restore.",
+      "fields": {
+        "media": {
+          "name": "Audio",
+          "description": "URL (http/https), media-source:// ID, or local path inside /config/www (for example /config/www/sounds/bell.mp3 or /local/sounds/bell.mp3)."
+        },
+        "volume": {
+          "name": "Volume",
+          "description": "Volume to set before playing (0-1)."
+        },
+        "restore_volume": {
+          "name": "Restore volume",
+          "description": "Return to the previous volume when the audio finishes."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_connected": {
+      "message": "{name} ({host}) is not connected."
+    },
+    "path_not_allowed": {
+      "message": "The path {path} is outside {www}. Only files inside /config/www can be played."
+    },
+    "file_not_found": {
+      "message": "File not found: {path}"
+    },
+    "no_url": {
+      "message": "Unable to determine the Home Assistant URL. Configure the local network URL in Settings > System > Network."
+    }
+  }
+}

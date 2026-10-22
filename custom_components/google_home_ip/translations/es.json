@@ -1,0 +1,78 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Añadir un Google Home por IP",
+        "description": "Introduce la IP local del Google Home. Home Assistant se conecta directamente al puerto 8009, sin descubrimiento mDNS.",
+        "data": {
+          "host": "Dirección IP",
+          "name": "Nombre"
+        },
+        "data_description": {
+          "host": "IP local del dispositivo, por ejemplo 192.168.0.9. Resérvala en el router para que no cambie.",
+          "name": "Nombre del dispositivo y de su entidad media_player."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "El dispositivo no responde en el puerto 8009. Revisa la IP y que Home Assistant pueda alcanzarlo por la red.",
+      "invalid_host": "Introduce una dirección IP válida."
+    },
+    "abort": {
+      "already_configured": "Ya hay un Google Home configurado con esta IP."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cambiar la IP de {name}",
+        "description": "Úsalo si el Google Home ha cambiado de IP. La integración se recarga al guardar.",
+        "data": {
+          "host": "Dirección IP"
+        },
+        "data_description": {
+          "host": "Nueva IP local del dispositivo."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "El dispositivo no responde en el puerto 8009. Revisa la IP y que Home Assistant pueda alcanzarlo por la red.",
+      "invalid_host": "Introduce una dirección IP válida.",
+      "already_configured": "Otro Google Home ya está configurado con esta IP."
+    }
+  },
+  "services": {
+    "play_audio": {
+      "name": "Reproducir audio",
+      "description": "Reproduce un archivo o stream de audio en el Google Home, con volumen opcional y restauración del volumen.",
+      "fields": {
+        "media": {
+          "name": "Audio",
+          "description": "URL (http/https), ID media-source:// o ruta local dentro de /config/www (por ejemplo /config/www/sonidos/timbre.mp3 o /local/sonidos/timbre.mp3)."
+        },
+        "volume": {
+          "name": "Volumen",
+          "description": "Volumen a fijar antes de reproducir (0-1)."
+        },
+        "restore_volume": {
+          "name": "Restaurar volumen",
+          "description": "Vuelve al volumen anterior cuando termina el audio."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_connected": {
+      "message": "{name} ({host}) no está conectado."
+    },
+    "path_not_allowed": {
+      "message": "La ruta {path} está fuera de {www}. Solo se pueden reproducir archivos dentro de /config/www."
+    },
+    "file_not_found": {
+      "message": "No se encuentra el archivo: {path}"
+    },
+    "no_url": {
+      "message": "No se puede determinar la URL de Home Assistant. Configura la URL de red local en Ajustes > Sistema > Red."
+    }
+  }
+}
