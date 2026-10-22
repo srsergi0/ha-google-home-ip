@@ -6,7 +6,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN
-from .coordinator import GoogleHomeConfigEntry
+from .models import GoogleHomeConfigEntry
 
 
 class GoogleHomeEntity(Entity):

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import voluptuous as vol
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.const import CONF_HOST, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant, callback
@@ -17,47 +20,102 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     ATTR_ANNOUNCE,
+    ATTR_CHIME,
+    ATTR_DURATION,
+    ATTR_FADE_IN,
+    ATTR_FADE_OUT,
+    ATTR_LANGUAGE,
+    ATTR_LOOP,
     ATTR_MEDIA,
+    ATTR_MESSAGE,
+    ATTR_MINUTES,
     ATTR_RESTORE_VOLUME,
+    ATTR_RESUME,
+    ATTR_TTS_ENTITY,
     ATTR_VOLUME,
+    CHIMES,
+    CHIMES_URL,
+    DEFAULT_FADE_OUT,
     DEFAULT_NAME,
     DOMAIN,
     LOGGER,
+    SERVICE_ANNOUNCE,
+    SERVICE_FADE_VOLUME,
     SERVICE_PLAY_AUDIO,
+    SERVICE_SLEEP_TIMER,
 )
-from .coordinator import (
-    GoogleHomeConfigEntry,
-    GoogleHomeData,
-    GoogleHomeInfoCoordinator,
-)
+from .coordinator import GoogleHomeInfoCoordinator
 from .device import GoogleHomeDevice
+from .models import GoogleHomeConfigEntry, GoogleHomeData
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
+    Platform.EVENT,
     Platform.MEDIA_PLAYER,
+    Platform.NUMBER,
     Platform.SENSOR,
+    Platform.TIME,
 ]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+_VOLUME = vol.All(vol.Coerce(float), vol.Range(min=0, max=1))
+
 PLAY_AUDIO_SCHEMA: dict[vol.Marker, object] = {
     vol.Required(ATTR_MEDIA): cv.string,
-    vol.Optional(ATTR_VOLUME): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
+    vol.Optional(ATTR_VOLUME): _VOLUME,
     vol.Optional(ATTR_RESTORE_VOLUME, default=False): cv.boolean,
     vol.Optional(ATTR_ANNOUNCE, default=False): cv.boolean,
+    vol.Optional(ATTR_LOOP, default=False): cv.boolean,
+    vol.Optional(ATTR_FADE_IN): vol.All(vol.Coerce(float), vol.Range(min=0)),
+}
+
+ANNOUNCE_SCHEMA: dict[vol.Marker, object] = {
+    vol.Optional(ATTR_MESSAGE): cv.string,
+    vol.Optional(ATTR_MEDIA): cv.string,
+    vol.Optional(ATTR_CHIME): cv.string,
+    vol.Optional(ATTR_VOLUME): _VOLUME,
+    vol.Optional(ATTR_TTS_ENTITY): cv.entity_id,
+    vol.Optional(ATTR_LANGUAGE): cv.string,
+    vol.Optional(ATTR_RESUME, default=True): cv.boolean,
+    vol.Optional(ATTR_FADE_IN): vol.All(vol.Coerce(float), vol.Range(min=0)),
+}
+
+FADE_VOLUME_SCHEMA: dict[vol.Marker, object] = {
+    vol.Required(ATTR_VOLUME): _VOLUME,
+    vol.Required(ATTR_DURATION): vol.All(vol.Coerce(float), vol.Range(min=0)),
+}
+
+SLEEP_TIMER_SCHEMA: dict[vol.Marker, object] = {
+    vol.Required(ATTR_MINUTES): vol.All(vol.Coerce(float), vol.Range(min=0)),
+    vol.Optional(ATTR_FADE_OUT, default=DEFAULT_FADE_OUT): vol.All(
+        vol.Coerce(float), vol.Range(min=0)
+    ),
 }
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Registra el servicio google_home_ip.play_audio."""
-    service.async_register_platform_entity_service(
-        hass,
-        DOMAIN,
-        SERVICE_PLAY_AUDIO,
-        entity_domain=MEDIA_PLAYER_DOMAIN,
-        schema=PLAY_AUDIO_SCHEMA,
-        func="async_play_audio",
+    """Registra los servicios y sirve las campanitas."""
+    chimes_dir = Path(__file__).parent / "chimes"
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CHIMES_URL, str(chimes_dir), cache_headers=True)]
     )
+
+    for name, schema, func in (
+        (SERVICE_PLAY_AUDIO, PLAY_AUDIO_SCHEMA, "async_play_audio"),
+        (SERVICE_ANNOUNCE, ANNOUNCE_SCHEMA, "async_announce"),
+        (SERVICE_FADE_VOLUME, FADE_VOLUME_SCHEMA, "async_fade_volume"),
+        (SERVICE_SLEEP_TIMER, SLEEP_TIMER_SCHEMA, "async_sleep_timer"),
+    ):
+        service.async_register_platform_entity_service(
+            hass,
+            DOMAIN,
+            name,
+            entity_domain=MEDIA_PLAYER_DOMAIN,
+            schema=schema,
+            func=func,
+        )
+    LOGGER.debug("Campanitas disponibles: %s", ", ".join(CHIMES))
     return True
 
 

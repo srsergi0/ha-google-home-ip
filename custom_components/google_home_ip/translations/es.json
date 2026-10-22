@@ -44,6 +44,17 @@
       "invalid_url": "Introduce una URL como {example_url} (sin ruta)."
     }
   },
+  "selector": {
+    "chime": {
+      "options": {
+        "ding": "Campana",
+        "ding_dong": "Timbre",
+        "aviso": "Aviso",
+        "alerta": "Alerta",
+        "none": "Sin campanita"
+      }
+    }
+  },
   "entity": {
     "binary_sensor": {
       "cast_connection": {
@@ -56,7 +67,51 @@
       },
       "last_boot": {
         "name": "Último reinicio"
+      },
+      "sleep_timer": {
+        "name": "Temporizador de apagado"
       }
+    },
+    "event": {
+      "google_home_event": {
+        "name": "Eventos",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "announcement_started": "Aviso iniciado",
+              "announcement_finished": "Aviso terminado",
+              "playback_finished": "Reproducción terminada",
+              "playback_error": "Error de reproducción",
+              "sleep_timer_finished": "Temporizador terminado"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "day_volume": {
+        "name": "Volumen de avisos (día)"
+      },
+      "night_volume": {
+        "name": "Volumen de avisos (noche)"
+      }
+    },
+    "time": {
+      "night_start": {
+        "name": "Inicio modo noche"
+      },
+      "night_end": {
+        "name": "Fin modo noche"
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "announcement_started": "Aviso iniciado",
+      "announcement_finished": "Aviso terminado",
+      "playback_finished": "Reproducción terminada",
+      "playback_error": "Error de reproducción",
+      "sleep_timer_finished": "Temporizador de apagado terminado"
     }
   },
   "services": {
@@ -81,6 +136,72 @@
           "description": "Interrumpe lo que esté sonando y lo reanuda al terminar el audio (radio, archivos y TTS del receptor genérico; apps como Spotify no se pueden reanudar)."
         }
       }
+    },
+    "announce": {
+      "name": "Dar un aviso",
+      "description": "Reproduce una campanita opcional y luego un mensaje de voz o un audio, y reanuda lo que estaba sonando al terminar.",
+      "fields": {
+        "message": {
+          "name": "Mensaje",
+          "description": "Texto que se lee en voz alta (TTS). Usa esto o 'media'."
+        },
+        "media": {
+          "name": "Audio",
+          "description": "URL, media-source:// o ruta local, en lugar de un mensaje de voz."
+        },
+        "chime": {
+          "name": "Campanita",
+          "description": "Sonido breve antes del mensaje."
+        },
+        "volume": {
+          "name": "Volumen",
+          "description": "Volumen del aviso (0-1). Si se omite, se usa el volumen automático día/noche."
+        },
+        "tts_entity": {
+          "name": "Entidad TTS",
+          "description": "Motor de voz a usar. Si se omite, el predeterminado."
+        },
+        "language": {
+          "name": "Idioma",
+          "description": "Idioma del mensaje, por ejemplo 'es'."
+        },
+        "fade_in": {
+          "name": "Subida gradual",
+          "description": "Segundos para subir el volumen desde cero."
+        },
+        "resume": {
+          "name": "Reanudar",
+          "description": "Reanuda el audio que estaba sonando al terminar el aviso."
+        }
+      }
+    },
+    "fade_volume": {
+      "name": "Volumen gradual",
+      "description": "Lleva el volumen hasta un valor a lo largo de un tiempo. Se detiene si cambias el volumen a mano.",
+      "fields": {
+        "volume": {
+          "name": "Volumen",
+          "description": "Volumen final (0-1)."
+        },
+        "duration": {
+          "name": "Duración",
+          "description": "Segundos que tarda en llegar al volumen final."
+        }
+      }
+    },
+    "sleep_timer": {
+      "name": "Temporizador de apagado",
+      "description": "Apaga el altavoz tras unos minutos, bajando el volumen poco a poco antes de apagar. Con 0 minutos se cancela.",
+      "fields": {
+        "minutes": {
+          "name": "Minutos",
+          "description": "Minutos hasta apagar. 0 para cancelar."
+        },
+        "fade_out": {
+          "name": "Bajada final",
+          "description": "Segundos de bajada de volumen antes de apagar."
+        }
+      }
     }
   },
   "exceptions": {
@@ -95,6 +216,12 @@
     },
     "no_url": {
       "message": "No se puede determinar la URL de Home Assistant. Configura la URL de red local en Ajustes > Sistema > Red o la URL de Home Assistant en las opciones de la integración."
+    },
+    "announce_empty": {
+      "message": "Indica un mensaje o un audio para el aviso."
+    },
+    "no_tts": {
+      "message": "No hay ningún motor de texto a voz (TTS) disponible. Instala uno o indícalo en 'tts_entity'."
     }
   }
 }

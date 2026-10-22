@@ -9,7 +9,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_BASE_URL
-from .coordinator import GoogleHomeConfigEntry
+from .models import GoogleHomeConfigEntry
 
 TO_REDACT = {
     CONF_BASE_URL,

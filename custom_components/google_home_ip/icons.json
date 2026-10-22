@@ -11,12 +11,45 @@
     "sensor": {
       "last_boot": {
         "default": "mdi:restart"
+      },
+      "sleep_timer": {
+        "default": "mdi:timer-sand"
+      }
+    },
+    "event": {
+      "google_home_event": {
+        "default": "mdi:bullhorn"
+      }
+    },
+    "number": {
+      "day_volume": {
+        "default": "mdi:white-balance-sunny"
+      },
+      "night_volume": {
+        "default": "mdi:weather-night"
+      }
+    },
+    "time": {
+      "night_start": {
+        "default": "mdi:weather-night"
+      },
+      "night_end": {
+        "default": "mdi:weather-sunset-up"
       }
     }
   },
   "services": {
     "play_audio": {
       "service": "mdi:speaker-play"
+    },
+    "announce": {
+      "service": "mdi:bullhorn"
+    },
+    "fade_volume": {
+      "service": "mdi:tune-vertical"
+    },
+    "sleep_timer": {
+      "service": "mdi:timer-sand"
     }
   }
 }

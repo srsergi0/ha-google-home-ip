@@ -8,8 +8,13 @@ Integración personalizada para [Home Assistant](https://www.home-assistant.io/)
 - Crea una entidad `media_player` por dispositivo: reproducir, pausa, stop, volumen (fijar, subir, bajar, silenciar), encender/apagar, posición (seek) y siguiente/anterior cuando la app lo permite.
 - Compatible con **Media Source** (explorador multimedia) y **TTS** (`tts.speak`).
 - **Avisos que interrumpen y reanudan**: un TTS o un sonido corta la radio o el audio que esté sonando y, al terminar, lo reanuda en el mismo punto.
-- Servicio propio `google_home_ip.play_audio` con volumen temporal y restauración del volumen anterior.
-- Sensores de diagnóstico: **conexión Cast**, **señal WiFi** (con red, punto de acceso y ruido) y **último reinicio**. La ficha del dispositivo muestra modelo, firmware y MAC.
+- Servicio `google_home_ip.announce` **pensado para automatizaciones**: campanita opcional + voz o audio, volumen automático día/noche, y la acción **espera a que termine** antes de seguir.
+- **Campanitas incluidas** (`ding`, `ding_dong`, `aviso`, `alerta`), servidas por la propia integración.
+- Servicio `google_home_ip.play_audio` con volumen temporal, restauración del volumen, **bucle** y **subida gradual** del volumen.
+- Servicios `google_home_ip.fade_volume` (volumen progresivo) y `google_home_ip.sleep_timer` (apagado con bajada de volumen).
+- **Entidad de eventos** y **disparadores de dispositivo** para el editor visual: aviso iniciado/terminado, reproducción terminada, error y temporizador terminado.
+- **Entidades de ajuste**: volumen de avisos de día y de noche, y horario del modo noche.
+- Sensores de diagnóstico: **conexión Cast**, **señal WiFi** (con red, punto de acceso y ruido), **último reinicio** y **temporizador de apagado**. La ficha del dispositivo muestra modelo, firmware y MAC.
 - Reconexión automática si el Google Home se reinicia o se cae la red; la entidad aparece como *no disponible* mientras no responde.
 
 ## Requisitos
@@ -60,8 +65,12 @@ Para un dispositivo llamado `Salón`:
 | `binary_sensor.salon_cast_connection` | `on` si el socket Cast (puerto 8009) está conectado. Siempre disponible, útil para avisar de caídas. |
 | `sensor.salon_wifi_signal` | Señal WiFi en dBm. Atributos: `ssid`, `bssid`, `noise_level`, `ip_address`. |
 | `sensor.salon_last_boot` | Hora del último arranque del altavoz. |
+| `sensor.salon_sleep_timer` | Hora a la que el temporizador apagará el altavoz (sin valor si no hay). |
+| `event.salon_events` | Último evento del altavoz; úsalo como disparador en automatizaciones. |
+| `number.salon_announcement_volume_day` / `_night` | Volumen (%) de los avisos de día y de noche. |
+| `time.salon_night_mode_start` / `_end` | Inicio y fin del tramo nocturno para el volumen de los avisos. |
 
-Los sensores se leen cada 60 s de la API local del dispositivo (puerto 8443) y no necesitan cuenta de Google. Los nombres se muestran traducidos, pero Home Assistant genera los IDs a partir del nombre en inglés.
+Los sensores de diagnóstico se leen cada 60 s de la API local del dispositivo (puerto 8443) y no necesitan cuenta de Google. Los nombres se muestran traducidos, pero Home Assistant genera los IDs a partir del nombre en inglés.
 
 ## Servicio `google_home_ip.play_audio`
 
@@ -92,6 +101,76 @@ data:
 Con `announce: true` (o con `tts.speak`, que siempre lo envía) el audio se reproduce como un aviso: si el Google Home estaba reproduciendo algo con el receptor genérico (radio, archivos, otro TTS…), se guarda el punto exacto y se reanuda cuando termina el aviso, después de restaurar el volumen si se pidió `restore_volume`. Si detienes el aviso a mano, no se reanuda nada. Lo que suena desde apps como Spotify o YouTube no se puede recuperar: el aviso lo corta.
 
 También funcionan los servicios estándar: `media_player.play_media`, `media_player.media_pause`, `media_player.media_stop`, `media_player.volume_set`, `media_player.volume_up`, `media_player.volume_down`, `media_player.volume_mute` y el explorador multimedia de la entidad.
+
+## Servicio `google_home_ip.announce`
+
+El servicio recomendado para automatizaciones. Reproduce una **campanita** opcional y luego un **mensaje de voz** (TTS) o un **audio**, y al terminar reanuda lo que estuviera sonando. La acción **no termina hasta que el aviso acaba**, así que el siguiente paso de tu automatización se ejecuta después.
+
+| Parámetro | Descripción |
+|---|---|
+| `entity_id` (target) | Uno o varios `media_player` de esta integración. |
+| `message` | Texto a leer en voz alta (TTS). Usa esto **o** `media`. |
+| `media` | URL, `media-source://…` o ruta local, en lugar de un mensaje de voz. |
+| `chime` | Campanita antes del mensaje: `ding`, `ding_dong`, `aviso`, `alerta` o `none`. |
+| `volume` | Volumen del aviso (0–1). Si se omite, se usa el **volumen automático día/noche**. |
+| `tts_entity` | Entidad TTS a usar (si no, la predeterminada). |
+| `language` | Idioma del mensaje, p. ej. `es`. |
+| `fade_in` | Segundos para subir el volumen desde cero. |
+| `resume` | Reanudar lo que sonaba al terminar (por defecto `true`). |
+
+```yaml
+action: google_home_ip.announce
+target:
+  entity_id: media_player.salon
+data:
+  message: "La cena está lista"
+  chime: ding
+```
+
+El **volumen automático día/noche** se controla con las entidades `number.<nombre>_announcement_volume_day` / `_night` y el horario con `time.<nombre>_night_mode_start` / `_end`. Así un mismo aviso suena fuerte de día y bajo de noche sin tocar la automatización.
+
+## Servicio `google_home_ip.fade_volume`
+
+Lleva el volumen hasta un valor a lo largo de un tiempo. Si cambias el volumen a mano durante el fundido, se detiene.
+
+```yaml
+action: google_home_ip.fade_volume
+target:
+  entity_id: media_player.salon
+data:
+  volume: 0.6
+  duration: 300   # 5 minutos
+```
+
+## Servicio `google_home_ip.sleep_timer`
+
+Apaga el altavoz tras unos minutos, bajando el volumen poco a poco antes. `minutes: 0` cancela un temporizador en curso. La hora de apagado aparece en `sensor.<nombre>_sleep_timer`.
+
+```yaml
+action: google_home_ip.sleep_timer
+target:
+  entity_id: media_player.salon
+data:
+  minutes: 30
+  fade_out: 30
+```
+
+## Automatizaciones por evento
+
+La entidad `event.<nombre>_events` y los **disparadores de dispositivo** exponen estos eventos: `announcement_started`, `announcement_finished`, `playback_finished`, `playback_error` y `sleep_timer_finished`. En el editor visual aparecen como «Cuando _Baño speaker_ → …».
+
+```yaml
+alias: Luz cuando termina la música
+triggers:
+  - trigger: device
+    domain: google_home_ip
+    device_id: <id del dispositivo>
+    type: playback_finished
+actions:
+  - action: light.turn_off
+    target:
+      entity_id: light.salon
+```
 
 ## Ejemplos de automatización
 
@@ -150,6 +229,44 @@ actions:
   - action: notify.notify
     data:
       message: "El Google Home del salón lleva 10 minutos sin conexión."
+mode: single
+```
+
+### Despertador amanecer (sube el volumen solo)
+
+```yaml
+alias: Despertador amanecer
+triggers:
+  - trigger: time
+    at: "07:00:00"
+actions:
+  - action: google_home_ip.play_audio
+    target:
+      entity_id: media_player.salon
+    data:
+      media: https://tu-emisora.example/stream.mp3
+      volume: 0.5
+      fade_in: 300   # sube de 0 a 50 % en 5 min
+mode: single
+```
+
+### Lluvia para dormir (bucle + apagado)
+
+```yaml
+alias: Lluvia 30 min
+triggers: []
+actions:
+  - action: google_home_ip.play_audio
+    target:
+      entity_id: media_player.salon
+    data:
+      media: /local/sonidos/lluvia.mp3
+      loop: true
+  - action: google_home_ip.sleep_timer
+    target:
+      entity_id: media_player.salon
+    data:
+      minutes: 30
 mode: single
 ```
 

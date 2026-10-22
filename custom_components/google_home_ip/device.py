@@ -71,6 +71,8 @@ class GoogleHomeDevice(
         self.cast_status: CastStatus | None = None
         self.media_status: MediaStatus | None = None
         self.media_status_received: datetime | None = None
+        # Se incrementa cada vez que el altavoz no puede cargar un audio.
+        self.load_failures = 0
 
     @property
     def uuid(self) -> UUID | None:
@@ -237,6 +239,8 @@ class GoogleHomeDevice(
             queue_item_id,
             error_code,
         )
+        self.load_failures += 1
+        self._notify()
 
     def _notify(self) -> None:
         dispatcher_send(self.hass, self.signal)

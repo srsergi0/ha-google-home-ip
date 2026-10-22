@@ -28,3 +28,114 @@ play_audio:
       default: false
       selector:
         boolean:
+    loop:
+      required: false
+      default: false
+      selector:
+        boolean:
+    fade_in:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          unit_of_measurement: s
+
+announce:
+  target:
+    entity:
+      integration: google_home_ip
+      domain: media_player
+  fields:
+    message:
+      example: "La cena está lista"
+      selector:
+        text:
+    media:
+      example: "/local/sonidos/aviso.mp3"
+      selector:
+        text:
+    chime:
+      example: "ding"
+      selector:
+        select:
+          options:
+            - "ding"
+            - "ding_dong"
+            - "aviso"
+            - "alerta"
+            - "none"
+          translation_key: chime
+    volume:
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+          mode: slider
+    tts_entity:
+      selector:
+        entity:
+          domain: tts
+    language:
+      example: "es"
+      selector:
+        text:
+    fade_in:
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          unit_of_measurement: s
+    resume:
+      default: true
+      selector:
+        boolean:
+fade_volume:
+  target:
+    entity:
+      integration: google_home_ip
+      domain: media_player
+  fields:
+    volume:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+          mode: slider
+    duration:
+      required: true
+      example: 300
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          unit_of_measurement: s
+sleep_timer:
+  target:
+    entity:
+      integration: google_home_ip
+      domain: media_player
+  fields:
+    minutes:
+      required: true
+      example: 30
+      selector:
+        number:
+          min: 0
+          max: 480
+          step: 1
+          unit_of_measurement: min
+    fade_out:
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 300
+          step: 5
+          unit_of_measurement: s

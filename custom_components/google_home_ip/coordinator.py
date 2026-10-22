@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
 import aiohttp
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -23,18 +21,7 @@ from .const import (
     LOGGER,
     REQUEST_TIMEOUT,
 )
-from .device import GoogleHomeDevice
-
-
-@dataclass
-class GoogleHomeData:
-    """Datos de ejecución de una entrada."""
-
-    device: GoogleHomeDevice
-    coordinator: GoogleHomeInfoCoordinator
-
-
-type GoogleHomeConfigEntry = ConfigEntry[GoogleHomeData]
+from .models import GoogleHomeConfigEntry
 
 
 class GoogleHomeInfoCoordinator(DataUpdateCoordinator[dict[str, Any]]):

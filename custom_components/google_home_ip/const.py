@@ -60,3 +60,58 @@ MIME_TYPES: Final[dict[str, str]] = {
     ".aac": "audio/aac",
     ".flac": "audio/flac",
 }
+
+# Opciones: motor TTS e idioma por defecto para google_home_ip.announce.
+CONF_TTS_ENTITY: Final = "tts_entity"
+CONF_LANGUAGE: Final = "language"
+
+# Campanitas servidas por Home Assistant (sin autenticación, como /local).
+CHIMES_URL: Final = f"/{DOMAIN}/chimes"
+CHIMES: Final = ("ding", "ding_dong", "aviso", "alerta")
+CHIME_NONE: Final = "none"
+DEFAULT_CHIME: Final = "ding"
+
+SIGNAL_EVENT: Final = f"{DOMAIN}_event_{{}}"
+# Evento de bus para los disparadores de dispositivo (editor visual).
+DEVICE_EVENT: Final = f"{DOMAIN}_event"
+SIGNAL_SETTINGS: Final = f"{DOMAIN}_settings_{{}}"
+
+SERVICE_ANNOUNCE: Final = "announce"
+SERVICE_FADE_VOLUME: Final = "fade_volume"
+SERVICE_SLEEP_TIMER: Final = "sleep_timer"
+ATTR_MESSAGE: Final = "message"
+ATTR_CHIME: Final = "chime"
+ATTR_TTS_ENTITY: Final = "tts_entity"
+ATTR_LANGUAGE: Final = "language"
+ATTR_RESUME: Final = "resume"
+ATTR_FADE_IN: Final = "fade_in"
+ATTR_DURATION: Final = "duration"
+ATTR_LOOP: Final = "loop"
+ATTR_MINUTES: Final = "minutes"
+ATTR_FADE_OUT: Final = "fade_out"
+
+# Tipos de la entidad event.
+EVENT_ANNOUNCEMENT_STARTED: Final = "announcement_started"
+EVENT_ANNOUNCEMENT_FINISHED: Final = "announcement_finished"
+EVENT_PLAYBACK_FINISHED: Final = "playback_finished"
+EVENT_PLAYBACK_ERROR: Final = "playback_error"
+EVENT_SLEEP_TIMER_FINISHED: Final = "sleep_timer_finished"
+EVENT_TYPES: Final = (
+    EVENT_ANNOUNCEMENT_STARTED,
+    EVENT_ANNOUNCEMENT_FINISHED,
+    EVENT_PLAYBACK_FINISHED,
+    EVENT_PLAYBACK_ERROR,
+    EVENT_SLEEP_TIMER_FINISHED,
+)
+
+# Volumen automático de los avisos (en %), y horario nocturno por defecto.
+DEFAULT_DAY_VOLUME: Final = 50
+DEFAULT_NIGHT_VOLUME: Final = 20
+DEFAULT_NIGHT_START: Final = "22:00"
+DEFAULT_NIGHT_END: Final = "07:00"
+
+# Fundidos de volumen.
+FADE_MIN_INTERVAL: Final = 0.5  # segundos mínimos entre pasos
+FADE_MAX_STEPS: Final = 120
+FADE_ABORT_DELTA: Final = 0.03  # si alguien cambia el volumen a mano, se para
+DEFAULT_FADE_OUT: Final = 30  # segundos de bajada al terminar el temporizador

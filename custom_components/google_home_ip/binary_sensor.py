@@ -11,8 +11,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .coordinator import GoogleHomeConfigEntry
 from .entity import GoogleHomeEntity
+from .models import GoogleHomeConfigEntry
 
 PARALLEL_UPDATES = 0
 

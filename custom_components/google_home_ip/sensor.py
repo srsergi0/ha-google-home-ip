@@ -12,12 +12,15 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .coordinator import GoogleHomeConfigEntry, GoogleHomeInfoCoordinator
+from .const import SIGNAL_SETTINGS
+from .coordinator import GoogleHomeInfoCoordinator
 from .entity import GoogleHomeEntity
+from .models import GoogleHomeConfigEntry
 
 PARALLEL_UPDATES = 0
 
@@ -33,7 +36,11 @@ async def async_setup_entry(
 ) -> None:
     """Crea los sensores de diagnóstico."""
     async_add_entities(
-        [GoogleHomeWifiSignalSensor(entry), GoogleHomeLastBootSensor(entry)]
+        [
+            GoogleHomeWifiSignalSensor(entry),
+            GoogleHomeLastBootSensor(entry),
+            GoogleHomeSleepTimerSensor(entry),
+        ]
     )
 
 
@@ -123,3 +130,32 @@ class GoogleHomeLastBootSensor(GoogleHomeInfoSensor):
     def native_value(self) -> datetime | None:
         """Hora del último arranque."""
         return self._boot_time
+
+
+class GoogleHomeSleepTimerSensor(GoogleHomeEntity, SensorEntity):
+    """Hora a la que el temporizador apagará el altavoz (sin valor si no hay)."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_translation_key = "sleep_timer"
+    _attr_should_poll = False
+
+    def __init__(self, entry: GoogleHomeConfigEntry) -> None:
+        """Inicializa el sensor."""
+        super().__init__(entry)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_sleep_timer"
+
+    async def async_added_to_hass(self) -> None:
+        """Se actualiza cuando cambia el temporizador."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_SETTINGS.format(self._entry.entry_id),
+                self.async_write_ha_state,
+            )
+        )
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Hora de apagado programada."""
+        return self._entry.runtime_data.sleep_timer_end

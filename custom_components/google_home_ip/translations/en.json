@@ -44,6 +44,17 @@
       "invalid_url": "Enter a URL like {example_url} (no path)."
     }
   },
+  "selector": {
+    "chime": {
+      "options": {
+        "ding": "Bell",
+        "ding_dong": "Door chime",
+        "aviso": "Notification",
+        "alerta": "Alert",
+        "none": "No chime"
+      }
+    }
+  },
   "entity": {
     "binary_sensor": {
       "cast_connection": {
@@ -56,7 +67,51 @@
       },
       "last_boot": {
         "name": "Last boot"
+      },
+      "sleep_timer": {
+        "name": "Sleep timer"
       }
+    },
+    "event": {
+      "google_home_event": {
+        "name": "Events",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "announcement_started": "Announcement started",
+              "announcement_finished": "Announcement finished",
+              "playback_finished": "Playback finished",
+              "playback_error": "Playback error",
+              "sleep_timer_finished": "Sleep timer finished"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "day_volume": {
+        "name": "Announcement volume (day)"
+      },
+      "night_volume": {
+        "name": "Announcement volume (night)"
+      }
+    },
+    "time": {
+      "night_start": {
+        "name": "Night mode start"
+      },
+      "night_end": {
+        "name": "Night mode end"
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "announcement_started": "Announcement started",
+      "announcement_finished": "Announcement finished",
+      "playback_finished": "Playback finished",
+      "playback_error": "Playback error",
+      "sleep_timer_finished": "Sleep timer finished"
     }
   },
   "services": {
@@ -81,6 +136,72 @@
           "description": "Interrupts what is playing and resumes it when the audio finishes (radio, files and TTS played on the default receiver; apps such as Spotify cannot be resumed)."
         }
       }
+    },
+    "announce": {
+      "name": "Announce",
+      "description": "Plays an optional chime, then a spoken message or audio, and resumes what was playing when it finishes.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "Text to read aloud (TTS). Use this or 'media'."
+        },
+        "media": {
+          "name": "Audio",
+          "description": "URL, media-source:// or local path, instead of a spoken message."
+        },
+        "chime": {
+          "name": "Chime",
+          "description": "Short sound before the message."
+        },
+        "volume": {
+          "name": "Volume",
+          "description": "Announcement volume (0-1). If omitted, the automatic day/night volume is used."
+        },
+        "tts_entity": {
+          "name": "TTS entity",
+          "description": "Voice engine to use. If omitted, the default one."
+        },
+        "language": {
+          "name": "Language",
+          "description": "Message language, e.g. 'en'."
+        },
+        "fade_in": {
+          "name": "Fade in",
+          "description": "Seconds to raise the volume from zero."
+        },
+        "resume": {
+          "name": "Resume",
+          "description": "Resume the audio that was playing when the announcement ends."
+        }
+      }
+    },
+    "fade_volume": {
+      "name": "Fade volume",
+      "description": "Moves the volume to a value over a period of time. Stops if you change the volume manually.",
+      "fields": {
+        "volume": {
+          "name": "Volume",
+          "description": "Target volume (0-1)."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds to reach the target volume."
+        }
+      }
+    },
+    "sleep_timer": {
+      "name": "Sleep timer",
+      "description": "Turns the speaker off after some minutes, fading the volume down first. Use 0 minutes to cancel.",
+      "fields": {
+        "minutes": {
+          "name": "Minutes",
+          "description": "Minutes until turning off. 0 to cancel."
+        },
+        "fade_out": {
+          "name": "Fade out",
+          "description": "Seconds of volume fade before turning off."
+        }
+      }
     }
   },
   "exceptions": {
@@ -95,6 +216,12 @@
     },
     "no_url": {
       "message": "Unable to determine the Home Assistant URL. Configure the local network URL in Settings > System > Network or the Home Assistant URL in the integration options."
+    },
+    "announce_empty": {
+      "message": "Provide a message or an audio for the announcement."
+    },
+    "no_tts": {
+      "message": "No text-to-speech (TTS) engine is available. Install one or set 'tts_entity'."
     }
   }
 }
